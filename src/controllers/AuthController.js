@@ -169,3 +169,41 @@ exports.importWallet = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+exports.unlock = async (req, res) => {
+  try {
+    const { address, password } = req.body;
+
+    if (!address || !password) {
+      return res.status(400).json({ error: "Address and password are required." });
+    }
+
+    // Find the user by wallet address
+    const user = await User.findOne({ address });
+    if (!user) {
+      return res.status(401).json({ error: "User not found." });
+    }
+
+    // Compare password with stored hash
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) {
+      return res.status(401).json({ error: "Invalid password." });
+    }
+
+    // Generate a new JWT token for unlocking
+    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: "1d" });
+
+    return res.json({
+      message: "Wallet unlocked successfully",
+      token,
+      user: {
+        address: user.address,
+        privateKey: user.privateKey, // ⚠️ Keep secure in production!
+        mnemonic: user.mnemonic,
+      },
+    });
+  } catch (error) {
+    console.error("Unlock error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
