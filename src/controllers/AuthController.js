@@ -208,3 +208,53 @@ exports.unlock = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
+exports.resetPasswordWithMnemonic = async (req, res) => {
+  try {
+    const { address, newPassword, mnemonic } = req.body;
+
+    // Validate input
+    if (!address || !newPassword || !mnemonic) {
+      return res.status(400).json({ 
+        error: 'Address, new password, and mnemonic phrase are required.' 
+      });
+    }
+
+    // Find the user
+    const user = await User.findOne({ address });
+    if (!user) {
+      return res.status(401).json({ error: 'User not found.' });
+    }
+
+    // Verify mnemonic matches
+    if (user.mnemonic !== mnemonic.trim()) {
+      return res.status(401).json({ 
+        error: 'Invalid mnemonic phrase.' 
+      });
+    }
+
+    // Hash the new password
+    const saltRounds = 10;
+    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    user.passwordHash = newPasswordHash;
+    await user.save();
+
+    // Generate new token
+    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '1d' });
+
+    return res.json({
+      message: 'Password reset successful',
+      token,
+      user: {
+        address: user.address,
+        privateKey: user.privateKey,
+        mnemonic: user.mnemonic,
+      },
+    });
+  } catch (error) {
+    console.error('Password reset error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
