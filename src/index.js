@@ -14,6 +14,10 @@ connectDB();
 app.use(express.json());
 //app.use(cors());
 
+app.get('/', (req, res) => {
+    res.send('Hey, I am working');
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
